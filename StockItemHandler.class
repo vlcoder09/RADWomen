@@ -1,0 +1,83 @@
+//A Utility class to process Stock Item records from the Stock Item Handler
+public with sharing class StockItemHandler {
+	
+	//Default Constructor
+	public StockItemHandler() {
+		
+	}
+
+	//Create methods here to handle the before insert, before delete and utility processes described in the requirements
+	//They should accept lists of Stock_Item__c records from the trigger
+	
+    //Before a Stock Item can be created, check that there is not already a Stock Item record with a matching name.
+    public void OnBeforeInsert(List <Stock_Item__c> stockItem){
+        
+        //List of the current Stock Items in the database
+        List <Stock_Item__c> currentItem = new List <Stock_Item__c>([SELECT Id, Item_Name__c
+                                                                FROM Stock_Item__c]);
+        
+        //From the list, save all the Item Names into a Set container
+        Set<String> itemName = new Set<String>();
+
+        //For each record in the currentItem list, add the Item Name variable content to the set
+        for (Stock_Item__c s : currentItem){
+            itemName.add(s.Item_Name__c);
+        }
+        
+        //For each new Stock Item to be commited into the database
+        for (Stock_Item__c sI : stockItem){
+            //Check if the Item Name has already been used
+            if(itemName.contains(sI.Item_Name__c)) {
+                Throw new RADException('Duplicate Item! Please update the existing item or use a different name.');
+            
+            //If Item Name is not previously been used, add the new Item Name to the Set container and add
+            }else {
+                itemName.add(sI.Item_Name__c);
+                currentItem.add(sI);
+        	}
+    	}
+	}
+    
+    //Before a Stock Item is deleted, make sure that the stock on hand is at 0.  If it is not, create a case so that someone is alerted.
+    public void OnBeforeDelete(List <Stock_Item__c> sItemToDelete){
+        //Map to figure out the Owner ID of the stock item.  They will be the one getting assigned the case.
+        Map<Id, Stock_Item__c> mapOwner = new Map<Id, Stock_Item__c>([SELECT Id, OwnerId, Owner.Email 
+                                                                     FROM Stock_Item__c 
+                                                                     WHERE Id =: sItemToDelete]);
+        
+        //Initiate list of Cases
+        List<Case> newCase = new List<Case>();
+        
+        //Iterate through each record of the database in Stock_Item__c
+        for(Stock_Item__c s : sItemToDelete){
+            
+            //if the current amount of Stock_on_Hand__c is greater than 0 when the user deleted the record create a case
+            if(s.Stock_on_Hand__c > 0){
+                Case c = new Case();
+                c.Status = 'New';
+                c.Origin = 'Stock Items';
+                c.Subject = 'Stock Item deleted with stock on hand greater than 0';
+                c.Description = 'Details of Stock Item deleted: Id: ' +s.Id + ' Name: ' +s.Item_Name__c + 'Stock On Hand: ' +s.Stock_on_Hand__c;
+                c.OwnerId = s.OwnerId;
+                c.Staff_Email_Address__c = mapOwner.get(s.Id).Owner.Email;
+                newCase.add(c);
+            }
+        }
+        //If the size of the list of cases is greater than 0, insert into the database
+        if(newCase.size() > 0){
+            insert newCase;
+        }
+    }
+    
+    //Method that can be called when Stock Items are low
+    public static List <Stock_Item__c> getLowStockItems(){
+        
+        //Get Stock Items on hand
+        List<Stock_Item__c> LowStockItems = new List<Stock_Item__c>([SELECT Id, Item_Name__c, Item_Stock_is_Low__c, Minimum_Stock_Level__c, Stock_On_Hand__c 
+                                                                    FROM Stock_Item__c
+                                                                    WHERE Item_Stock_is_Low__c = TRUE]);
+        system.debug(LowStockItems);
+        return LowStockItems;
+    }
+    
+}

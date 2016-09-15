@@ -1,0 +1,122 @@
+@isTest
+private class StockItemHandler_Test {
+	
+	@isTest static void testBeforeInsertFunctionality() {
+        //Test Scenario #1: Test that the system will allow for insert of a new stock item
+        //Create the first stock item (Item1)
+        Stock_Item__c item1 = new Stock_Item__c();
+        item1.Item_Name__c = 'StockOne';
+        item1.Description__c = 'StockOne';
+        item1.List_Price__c = 10.00;
+        item1.Stock_on_Hand__c = 5;
+        item1.Minimum_Stock_Level__c = 3;
+        //Trigger will execute
+        insert item1;
+        
+        //Retrive the newly created stock item
+        List<Stock_Item__c> validateStockItem1 = [SELECT Id, Item_Name__c
+                                                 FROM Stock_Item__c];
+        
+        //Validate that there is only one stock item
+        System.assertEquals(1, validateStockItem1.size());
+        
+        
+        //Test Scenario #2: Test the system will not allow for insert of a duplicate stock item
+        //Create identical stock item (Item2)
+        Stock_Item__c item2 = new Stock_Item__c();
+      	item2.Item_Name__c = 'StockOne';
+       	item2.Item_Name__c = 'StockOne';
+       	item2.Description__c = 'StockOne';
+       	item2.List_Price__c = 10.00;
+       	item2.Stock_on_Hand__c = 5;
+       	item2.Minimum_Stock_Level__c = 3;
+       	
+        try {
+            //Trigger will execute
+            insert item2;
+        } catch (DMLException e) {
+            //Assert Error Message
+            System.assert(e.getMessage().contains('Duplicate Item!'), e.getMessage());
+          }  //catch
+    }
+
+	
+	@isTest static void testBeforeDeleteFunctionality() {
+		//Test Scenario #1: Verify that when an item is deleted, if the stock on hand is greater than zero that a case is created.
+        Stock_Item__c item3 = new Stock_Item__c();
+        item3.Item_Name__c = 'StockOne';
+        item3.Description__c = 'StockOne';
+        item3.List_Price__c = 10.00;
+        item3.Stock_on_Hand__c = 5;
+        item3.Minimum_Stock_Level__c = 3;
+        insert item3;
+        
+        //Query the newly created stock item
+        List<Stock_Item__c> validateStockItem3 = [SELECT Id, Item_Name__c, Stock_On_Hand__c 
+                                                 FROM Stock_Item__c
+                                                 WHERE Id=: item3.Id];
+        
+        //Validate that there is only one stock item
+        System.assertEquals(true, item3.Stock_on_Hand__c > 0);
+        
+        //Delete stock item
+        delete item3;
+        
+        //Query cases
+        List<Case> validateCase = [SELECT Id, Description
+                                  FROM Case 
+                                  WHERE Origin = 'Stock Items'];
+        
+        //Valdiate a new case was created for the deleted stock
+        System.assertEquals(1, validateCase.size());
+	}
+
+	@isTest static void testgetLowStockItems() {
+		// Implement test code
+		// Create a couple of items where we have Low Stock
+        Stock_Item__c item1 = new Stock_Item__c();
+        item1.Item_Name__c = 'StockOne';
+        item1.Description__c = 'StockOne';
+        item1.List_Price__c = 10.00;
+        item1.Stock_on_Hand__c = 3;
+        item1.Minimum_Stock_Level__c = 5;
+        insert item1;
+
+        Stock_Item__c item2 = new Stock_Item__c();
+        item2.Item_Name__c = 'StockTwo';
+        item2.Description__c = 'StockTwo';
+        item2.List_Price__c = 15.00;
+        item2.Stock_on_Hand__c = 5;
+        item2.Minimum_Stock_Level__c = 10;
+        insert item2;
+        
+        //Query stock items to store in list LowStock
+        List<Stock_Item__c> lowStock = [SELECT Id, Item_Name__c, Item_Stock_is_Low__c
+                                       FROM Stock_Item__c 
+                                       WHERE Item_Stock_is_Low__c = TRUE];
+        
+        System.assertEquals(2, lowStock.size());
+        
+        delete item2;
+        
+        //Query stock items to store in list LowStock
+        List<Stock_Item__c> lowStock2 = [SELECT Id, Item_Name__c, Item_Stock_is_Low__c
+                                        FROM Stock_Item__c
+                                        WHERE Item_Stock_is_Low__c = TRUE];
+        
+        System.assertEquals(1, lowStock2.size());
+        System.assertEquals(lowStock2, StockItemHandler.getLowStockItems());
+      
+	}
+
+	@isTest static void packageUploadCoverage() {
+	//	Stock_Item__c item = new Stock_Item__c();
+	//	item.Item_Name__c = 'Test';
+	//	item.Description__c = 'Test';
+	//	item.Minimum_Stock_Level__c =3;
+
+	//	insert item;
+
+	}
+	
+}
